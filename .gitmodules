@@ -1,0 +1,3 @@
+[submodule "windows/shadowsocks-libev"]
+	path = windows/shadowsocks-libev
+	url = https://github.com/shadowsocks/shadowsocks-libev

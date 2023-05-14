@@ -1,0 +1,105 @@
+---
+name: build
+on:
+  - push
+jobs:
+  Build-Libs-ShadowSocks-Win:
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - mingw64
+          - mingw
+        include:
+          - target: mingw64
+            chost: x86_64-w64-mingw32
+          - target: mingw
+            chost: i686-w64-mingw32
+    name: gcc-mingw - ${{matrix.target}} 
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Install dependencies
+        run: sudo apt update && sudo apt install -y mingw-w64 libtool automake autoconf
+          man2html unzip cmake ninja-build build-essential wget
+      - name: Checkout ShadowSocks
+        uses: actions/checkout@v3
+        with:
+          path: windows/shadowsocks-libev
+      - name: Build libev 4.25
+        working-directory: windows/shadowsocks-libev
+        run: |
+          cd windows/shadowsocks-libev
+          git submodule update --init --recursive
+          wget https://github.com/shadowsocks/libev/archive/mingw.zip
+          unzip mingw.zip
+          cd libev-mingw
+          ./configure --host=i686-w64-mingw32 --prefix=${HOME}/shadowsocks --disable-shared --enable-static
+          make clean
+          make
+          make install
+      - name: Build mbedtls 2.16.5
+        working-directory: windows/shadowsocks-libev
+        run: |
+          cd windows/shadowsocks-libev
+          wget https://github.com/Mbed-TLS/mbedtls/archive/refs/tags/mbedtls-2.16.5.tar.gz
+          tar xvf mbedtls-2.16.5.tar.gz
+          cd mbedtls-mbedtls-2.16.5
+          make clean
+          make lib WINDOWS=1 CC=i686-w64-mingw32-gcc AR=i686-w64-mingw32-ar
+          cp -RP include/mbedtls ${HOME}/shadowsocks/include/mbedtls
+          cp -RP library/libmbedtls.* ${HOME}/shadowsocks/lib
+          cp -RP library/libmbedx509.* ${HOME}/shadowsocks/lib
+          cp -RP library/libmbedcrypto.* ${HOME}/shadowsocks/lib
+      - name: Build libsodium 1.0.18
+        working-directory: windows/shadowsocks-libev
+        run: |
+          cd windows/shadowsocks-libev
+          wget https://download.libsodium.org/libsodium/releases/libsodium-1.0.18-stable.tar.gz
+          tar xvf libsodium-1.0.18-stable.tar.gz
+          cd libsodium-stable
+          autoreconf -fi
+          ./configure --host=i686-w64-mingw32 --prefix=${HOME}/shadowsocks --disable-shared --enable-static
+          make clean
+          make
+          make install  
+      - name: Build pcre 8.44
+        working-directory: windows/shadowsocks-libev
+        run: |
+          cd windows/shadowsocks-libev
+          wget https://web.archive.org/web/20200622131304if_/https://ftp.pcre.org/pub/pcre/pcre-8.44.tar.gz
+          tar xvf pcre-8.44.tar.gz
+          cd pcre-8.44
+          ./configure --host=i686-w64-mingw32 --prefix=${HOME}/shadowsocks --disable-shared --enable-static --disable-cpp --enable-unicode-properties
+          make clean
+          make
+          make install            
+      - name: Build c-ares 1.16
+        working-directory: windows/shadowsocks-libev
+        run: |
+          cd windows/shadowsocks-libev
+          wget https://c-ares.haxx.se/download/c-ares-1.16.0.tar.gz
+          tar xvf c-ares-1.16.0.tar.gz
+          cd c-ares-1.16.0
+          ./configure --host=i686-w64-mingw32 --prefix=${HOME}/shadowsocks --disable-shared --enable-static
+          make clean
+          make
+          make install
+      - name: Build shadowsocks-libev
+        working-directory: windows/shadowsocks-libev
+        run: |
+          cd windows/shadowsocks-libev
+          export LD_LIBRARY_PATH=${HOME}/shadowsocks/lib:$LD_LIBRARY_PATH
+          export CPATH=${HOME}/shadowsocks/include:$CPATH
+          export PATH=${HOME}/shadowsocks/bin:$PATH
+          export PKG_CONFIG_PATH=${HOME}/shadowsocks/lib/pkgconfig:$PKG_CONFIG_PATH
+          export XDG_DATA_DIRS=${HOME}/shadowsocks/share:$XDG_DATA_DIRS
+          sudo ldconfig
+          ./autogen.sh
+          ./configure --host=i686-w64-mingw32 --prefix=${HOME}/shadowsocks-build --disable-documentation --with-ev=${HOME}/shadowsocks --with-mbedtls=${HOME}/shadowsocks --with-sodium=${HOME}/shadowsocks --with-pcre=${HOME}/shadowsocks --with-cares=${HOME}/shadowsocks CFLAGS="-DCARES_STATICLIB -DPCRE_STATIC"
+          make clean
+          make LDFLAGS="-all-static -L${HOME}/shadowsocks/lib"
+          make install
+          i686-w64-mingw32-strip ${HOME}/shadowsocks-build/bin/ss-local.exe
+          i686-w64-mingw32-strip ${HOME}/shadowsocks-build/bin/ss-server.exe
+          i686-w64-mingw32-strip ${HOME}/shadowsocks-build/bin/ss-tunnel.exe    
+
