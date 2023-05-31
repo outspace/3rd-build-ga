@@ -7,6 +7,11 @@ jobs:
   Build-Libs-Linux-Ubuntu:
     name: 'Build-Libs-Linux-Ubuntu'
     runs-on: ubuntu-latest
+    if: |
+      contains(github.event.head_commit.message, '[all]') ||
+      contains(github.event.head_commit.message, '[linux]') ||
+      contains(github.event.head_commit.message, '[linux-openssl]') ||
+      contains(github.event.head_commit.message, '[openssl]')    
 
     strategy:
       matrix:
@@ -45,13 +50,67 @@ jobs:
     - name: Build OpenSSL
       run: |
         cd openssl
+        mkdir build
         case "${{ matrix.arch }}" in
-          x86) ./Configure no-tests linux-x86 shared;;
-          x86_64) ./Configure no-tests linux-x86_64 shared ;;
-          arm32) ./Configure no-tests linux-armv4 --cross-compile-prefix=arm-linux-gnueabihf- shared ;;
-          arm64) ./Configure no-tests linux-aarch64 --cross-compile-prefix=aarch64-linux-gnu- shared ;;
+          x86)
+            mkdir build/x86 
+            ./Configure no-tests linux-x86 shared
+            make
+            cp libcrypto.so ./build/x86/libcrypto.so
+            cp libssl.so ./build/x86/libssl.so
+            ;;
+          x86_64)
+            mkdir build/x86_64
+            ./Configure no-tests linux-x86_64 shared
+            make
+            cp libcrypto.so ./build/x86_64/libcrypto.so
+            cp libssl.so ./build/x86_64/libssl.so 
+            ;;
+          arm32)         
+            mkdir build/arm32 
+            ./Configure no-tests linux-armv4 --cross-compile-prefix=arm-linux-gnueabihf- shared
+            make
+            cp libcrypto.so ./build/arm32/libcrypto.so
+            cp libssl.so ./build/arm32/libssl.so 
+            ;;
+          arm64)
+            mkdir build/arm64 
+            ./Configure no-tests linux-aarch64 --cross-compile-prefix=aarch64-linux-gnu- shared
+            make
+            cp libcrypto.so ./build/arm64/libcrypto.so
+            cp libssl.so ./build/arm64/libssl.so
+            ;;
         esac
-        make
+
+    - name: Archive Linux OpenSSL libs
+      uses: actions/upload-artifact@v3
+      with:
+        retention-days: 1
+        name: linux-openssl
+        path: '~/work/3rd-build-ga/3rd-build-ga/openssl/build'            
+  github-release:
+    name: GitHub Release
+    needs: Build-Libs-Linux-Ubuntu
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup | Artifacts
+        uses: actions/download-artifact@v2
+
+      - name: Setup | Checksums
+        run: for file in */*; do openssl dgst -sha256 -r "$file" | awk '{print $1}' > "${file}.sha256"; done
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            */*
+ 
+        
 
 
 
