@@ -88,7 +88,28 @@ jobs:
         retention-days: 1
         name: linux-openssl
         path: '~/work/3rd-build-ga/3rd-build-ga/openssl/build'            
-        
+  github-release:
+    name: GitHub Release
+    needs: Build-Libs-Linux-Ubuntu
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup | Artifacts
+        uses: actions/download-artifact@v2
+
+      - name: Setup | Checksums
+        run: for file in */*; do openssl dgst -sha256 -r "$file" | awk '{print $1}' > "${file}.sha256"; done
+
+      - name: Publish
+        uses: marvinpinto/action-automatic-releases@latest
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          prerelease: true
+          files: |
+            */*       
         
 
 
