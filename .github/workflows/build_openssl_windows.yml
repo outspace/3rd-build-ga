@@ -1,0 +1,100 @@
+name: windows-openssl
+
+
+on: [push]
+
+jobs:
+  Build-Libs-OpenSSL-Win:
+    name: 'Build-OpenSSL-Lib-Windows'
+    runs-on: windows-latest
+    if: |
+      contains(github.event.head_commit.message, '[all]') ||
+      contains(github.event.head_commit.message, '[windows]') ||
+      contains(github.event.head_commit.message, '[windows-openssl]') ||
+      contains(github.event.head_commit.message, '[openssl]')    
+          
+    strategy:
+      matrix:
+        arch:
+          - amd64
+          - amd64_x86
+          
+    steps:
+      - name: 'Get openssl'
+        uses: actions/checkout@v3
+        with:
+          repository: openssl/openssl
+          ref: OpenSSL_1_1_1t
+          path: openssl
+      
+      - name: Setup msbuild environment    
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.arch }}
+      - uses: ilammy/setup-nasm@v1.2.1
+        name: Install NASM
+      - uses: shogo82148/actions-setup-perl@v1
+        name: Install PERL
+        with:
+          distribution: strawberry
+      - name: Build OpenSSL x86
+        if: matrix.arch == 'amd64_x86'
+        run: |
+          cd openssl
+
+          perl Configure no-tests no-shared VC-WIN32
+          nmake
+          mkdir build
+          mkdir build/win32
+          move libcrypto.lib build/win32
+          move libssl.lib build/win32
+      - name: Build OpenSSL x64
+        if: matrix.arch == 'amd64'
+        run: |
+          cd openssl
+
+          perl Configure no-tests no-shared VC-WIN64A
+          nmake
+          mkdir build
+          mkdir build/win64
+          move libcrypto.lib build/win64
+          move libssl.lib build/win64
+          move include build/include
+      
+      - name: Archive Windows OpenSSL libs
+        uses: actions/upload-artifact@v3
+        with:
+          retention-days: 1
+          name: windows-openssl
+          path: openssl/build            
+
+
+  github-release:
+    name: GitHub Release
+    needs: Build-Libs-OpenSSL-Win
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup | Artifacts
+        uses: actions/download-artifact@v2
+
+      - name: Setup | Checksums
+        run: for file in $(find ./ -name '*.lib' -or -name '*.dll' ); do openssl dgst -sha256 -r "$file" | awk '{print $1}' > "${file}.sha256"; done
+
+      - name: Zip ALL
+        run: for file in *; do zip -r ${file%.*}.zip  $file; done
+
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: windows-openssl.zip
+          tag: ${{ github.ref }}
+          overwrite: true
+          file_glob: true      
+       
+

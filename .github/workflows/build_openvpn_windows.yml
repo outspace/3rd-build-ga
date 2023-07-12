@@ -1,0 +1,124 @@
+name: windows-openvpn
+
+on: [push]
+    
+
+jobs:
+  msvc:
+      strategy:
+        fail-fast: false
+        matrix:
+          plat: [ARM64, Win32, x64]
+          include:
+            - plat: ARM64
+              triplet: arm64
+            - plat: Win32
+              triplet: x86
+            - plat: x64
+              triplet: x64
+
+      name: "OpenVPN msbuild"
+      env:
+        BUILD_CONFIGURATION: Release
+        VCPKG_OVERLAY_PORTS: ${{ github.workspace }}/openvpn/contrib/vcpkg-ports
+        VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}/openvpn/contrib/vcpkg-triplets
+              
+      runs-on: windows-latest
+      if: |
+        contains(github.event.head_commit.message, '[all]') ||
+        contains(github.event.head_commit.message, '[windows]') ||
+        contains(github.event.head_commit.message, '[windows-openvpn]') ||
+        contains(github.event.head_commit.message, '[openvpn]')
+      
+      steps:
+      - uses: actions/checkout@v3
+      
+      - name: 'Get openvpn'
+        uses: actions/checkout@v3
+        with:
+          repository: OpenVPN/openvpn
+          ref: release/2.5
+          path: openvpn
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v1.1
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install rst2html
+        run: python -m pip install --upgrade pip rst2html
+
+      - name: Restore artifacts, or setup vcpkg (do not install any package)
+        uses: lukka/run-vcpkg@v10
+        with:
+          vcpkgGitCommitId: 'd10d511f25620ca0f315cd83dcef6485efc63010'
+          vcpkgJsonGlob: '**/openvpn/vcpkg.json'
+          appendedCacheKey: '${{matrix.triplet}}'
+
+      - name: Run MSBuild consuming vcpkg.json
+        working-directory: openvpn
+        run: |
+          ${{ github.workspace }}/vcpkg/vcpkg.exe integrate install
+          msbuild /m /p:Configuration=${{env.BUILD_CONFIGURATION}} /p:Platform="${{ matrix.plat }}" .
+
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: openvpn-win-${{ matrix.plat }}
+          path: |
+            openvpn/${{ matrix.plat }}-Output/${{env.BUILD_CONFIGURATION}}/*.exe
+            openvpn/${{ matrix.plat }}-Output/${{env.BUILD_CONFIGURATION}}/*.dll
+            openvpn/${{ matrix.plat }}-Output/${{env.BUILD_CONFIGURATION}}/*.pdb
+            openvpn/doc/openvpn.8.html          
+
+  github-release:
+    name: GitHub Release
+    needs: msvc
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup | Artifacts
+        uses: actions/download-artifact@v2
+
+      - name: Setup | Checksums
+        run: for file in $(find ./ -name '*.exe' -or -name '*.dll' ); do openssl dgst -sha256 -r "$file" | awk '{print $1}' > "${file}.sha256"; done
+
+      - name: Zip ALL
+        run: for file in *; do zip -r ${file%.*}.zip  $file; done
+
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: openvpn-win-ARM64.zip
+          tag: ${{ github.ref }}
+          overwrite: true
+          file_glob: true
+
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: openvpn-win-Win32.zip
+          tag: ${{ github.ref }}
+          overwrite: true
+          file_glob: true  
+
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: openvpn-win-x64.zip
+          tag: ${{ github.ref }}
+          overwrite: true
+          file_glob: true   
+            
+             
+

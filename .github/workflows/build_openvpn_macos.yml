@@ -1,0 +1,106 @@
+name: macos-openvpn
+
+on: [push]
+    
+jobs:
+
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        ssllib: [ openssl11 ]
+        build: [ normal, asan ]
+        os: [macos-11, macos-12]
+        include:
+          - build: asan
+            cflags: "-fsanitize=address -fno-optimize-sibling-calls -fsanitize-address-use-after-scope -fno-omit-frame-pointer -g -O1"
+            ldflags: -fsanitize=address
+            # Our build system ignores LDFLAGS for plugins
+            configureflags: --disable-plugin-auth-pam  --disable-plugin-down-root
+          - build: normal
+            cflags: "-O2 -g"
+            ldflags: ""
+            configureflags: ""
+          - ssllib: openssl11
+            libdir: openssl@1.1
+            configuressllib: ""
+
+
+    runs-on: ${{matrix.os}}
+    if: |
+      contains(github.event.head_commit.message, '[all]') ||
+      contains(github.event.head_commit.message, '[macos]') ||
+      contains(github.event.head_commit.message, '[macos-openvpn]') ||
+      contains(github.event.head_commit.message, '[openvpn]') 
+    
+    name: "${{matrix.os}} - ${{matrix.libdir}} - ${{matrix.build}}"
+    env:
+      CFLAGS: ${{ matrix.cflags }}
+      LDFLAGS: ${{ matrix.ldflags }}
+      OPENSSL_CFLAGS: "-I/usr/local/opt/${{matrix.libdir}}/include"
+      OPENSSL_LIBS: "-L/usr/local/opt/${{matrix.libdir}}/lib -lcrypto -lssl"
+      UBSAN_OPTIONS: print_stacktrace=1
+    steps:
+      - name: Install dependencies
+        run: brew install openssl@1.1 lzo lz4 man2html cmocka libtool automake autoconf
+        
+      - name: 'Get openvpn'
+        uses: actions/checkout@v3
+        with:
+          repository: OpenVPN/openvpn
+          ref: release/2.6
+          path: openvpn
+
+      - name: autoconf
+        working-directory: openvpn
+        run: autoreconf -fvi
+      - name: configure
+        working-directory: openvpn
+        run: ./configure --enable-werror ${{matrix.configureflags}} ${{matrix.configuressllib}}
+      - name: make all
+        working-directory: openvpn
+        run: make -j4
+      - name: make check
+        working-directory: openvpn
+        run: make check
+      - name: copy libs
+        working-directory: openvpn
+        run: |
+          mkdir buildOvpn
+          mkdir buildOvpn/${{matrix.os}}_${{matrix.build}}
+          cp src/openvpn/openvpn buildOvpn/${{matrix.os}}_${{matrix.build}}/openvpn
+      
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: openvpn-macos
+          path: openvpn/buildOvpn/* 
+
+  github-release:
+    name: GitHub Release
+    needs: macos
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup | Artifacts
+        uses: actions/download-artifact@v2
+
+      - name: Setup | Checksums
+        run: for file in $(find ./ -name 'o*' ); do openssl dgst -sha256 -r "$file" | awk '{print $1}' > "${file}.sha256"; done
+
+      - name: Zip ALL
+        run: for file in *; do zip -r ${file%.*}.zip  $file; done
+
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: openvpn-macos.zip
+          tag: ${{ github.ref }}
+          overwrite: true
+          file_glob: true                              
+      

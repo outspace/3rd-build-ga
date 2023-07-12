@@ -27,6 +27,18 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
+    - name: 'Setup Android'
+      run: |
+        export NDK_VERSION=23c
+        export ANDROID_NDK_PLATFORM=android-23
+        export ANDROID_NDK_HOME=${{ runner.temp }}/android-ndk-r${NDK_VERSION}
+        export ANDROID_NDK_ROOT=$ANDROID_NDK_HOME
+        export ANDROID_CURRENT_ARCH=${{ matrix.arch }}
+
+        if [ ! -f $ANDROID_NDK_ROOT/ndk-build ]; then
+          wget https://dl.google.com/android/repository/android-ndk-r${NDK_VERSION}-linux.zip -qO ${{ runner.temp }}/ndk.zip &&
+          unzip -q -d ${{ runner.temp }} ${{ runner.temp }}/ndk.zip ;
+        fi
 
     - name: 'Install GO'
       uses: actions/setup-go@v2
@@ -54,6 +66,9 @@ jobs:
         cd amnezia-client
         git submodule update --init --recursive
         cd client/android
+        cd cpp/openvpn3
+        git pull origin master-amnezia
+        cd ../..
         case "${{ matrix.arch }}" in
           arm64-v8a)
             export ANDROID_ARCH=arm64-v8a
@@ -103,7 +118,7 @@ jobs:
         uses: actions/download-artifact@v2
 
       - name: Setup | Checksums
-        run: for file in $(find ./ -name '*.a' ); do openssl dgst -sha256 -r "$file" | awk '{print $1}' > "${file}.sha256"; done
+        run: for file in $(find ./ -name '*.so' ); do openssl dgst -sha256 -r "$file" | awk '{print $1}' > "${file}.sha256"; done
 
       - name: Zip ALL
         run: for file in *; do zip -r ${file%.*}.zip  $file; done

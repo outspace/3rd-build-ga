@@ -1,0 +1,110 @@
+name: android-openssl
+
+
+on: [push]
+
+jobs:
+  Build-Libs-OpenSSL-Android:
+    name: 'Build-OpenSSL-Lib-Android'
+    runs-on: ubuntu-latest
+    if: |
+      contains(github.event.head_commit.message, '[all]') ||
+      contains(github.event.head_commit.message, '[android]') ||
+      contains(github.event.head_commit.message, '[android-openssl]') ||
+      contains(github.event.head_commit.message, '[openssl]')    
+
+    strategy:
+      matrix:
+        arch: [x86, x86_64, armeabi-v7a, arm64-v8a]
+      fail-fast: false
+
+    steps:
+    - name: 'Get openssl'
+      uses: actions/checkout@v3
+      with:
+        repository: openssl/openssl
+        ref: OpenSSL_1_1_1t
+        path: openssl
+
+    - name: 'Setup Android'
+      run: |
+        export NDK_VERSION=23c
+        export ANDROID_NDK_PLATFORM=android-23
+        export ANDROID_NDK_HOME=${{ runner.temp }}/android-ndk-r${NDK_VERSION}
+        export ANDROID_NDK_ROOT=$ANDROID_NDK_HOME
+        export ANDROID_CURRENT_ARCH=${{ matrix.arch }}
+
+        if [ ! -f $ANDROID_NDK_ROOT/ndk-build ]; then
+          wget https://dl.google.com/android/repository/android-ndk-r${NDK_VERSION}-linux.zip -qO ${{ runner.temp }}/ndk.zip &&
+          unzip -q -d ${{ runner.temp }} ${{ runner.temp }}/ndk.zip ;
+        fi
+
+    - name: 'Build OpenSSL Android'
+      run: |
+        cd openssl
+        mkdir build
+        case "${{ matrix.arch }}" in
+          arm64-v8a) 
+            ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME PATH=$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH ./Configure android-arm64 no-tests -U__ANDROID_API__ -D__ANDROID_API__=21 && PATH=$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH make
+            mkdir build/arm64-v8a
+            cp libcrypto.a ./build/arm64-v8a/libcrypto.a
+            cp libssl.a ./build/arm64-v8a/libssl.a
+            cp -a ./include/. ./build/include 
+            ;;
+          armeabi-v7a) 
+            ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME PATH=$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH ./Configure android-arm no-tests -U__ANDROID_API__ -D__ANDROID_API__=21 && PATH=$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH make
+            mkdir build/armeabi-v7a
+            cp libcrypto.a ./build/armeabi-v7a/libcrypto.a
+            cp libssl.a ./build/armeabi-v7a/libssl.a
+            ;;
+          x86_64) 
+            ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME PATH=$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH ./Configure android-x86_64 no-tests -U__ANDROID_API__ -D__ANDROID_API__=21 && PATH=$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH make
+            mkdir build/x86_64
+            cp libcrypto.a ./build/x86_64/libcrypto.a
+            cp libssl.a ./build/x86_64/libssl.a
+            ;;
+          x86)
+            ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME PATH=$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH ./Configure android-x86 no-tests -U__ANDROID_API__ -D__ANDROID_API__=21 && PATH=$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH make
+            mkdir build/x86
+            cp libcrypto.a ./build/x86/libcrypto.a
+            cp libssl.a ./build/x86/libssl.a
+            ;;
+        esac  
+
+    - name: Archive Android OpenSSL libs
+      uses: actions/upload-artifact@v3
+      with:
+        retention-days: 1
+        name: android-openssl
+        path: '~/work/3rd-build-ga/3rd-build-ga/openssl/build'          
+
+      
+  github-release:
+    name: GitHub Release
+    needs: Build-Libs-OpenSSL-Android
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup | Artifacts
+        uses: actions/download-artifact@v2
+
+      - name: Setup | Checksums
+        run: for file in $(find ./ -name '*.a' ); do openssl dgst -sha256 -r "$file" | awk '{print $1}' > "${file}.sha256"; done
+
+      - name: Zip ALL
+        run: for file in *; do zip -r ${file%.*}.zip  $file; done
+
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: android-openssl.zip
+          tag: ${{ github.ref }}
+          overwrite: true
+          file_glob: true   
+ 
+
