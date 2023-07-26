@@ -65,24 +65,24 @@ jobs:
       run: |
         cd zlib-${{env.ZLIB_VERSION}}
         cmake .
-        make
+        make zlibstatic
 
     - name: Build openssl
       run: |
         cd openssl-${{env.OPENSSL_VERSION}}
-        ./Configure no-tests linux-x86_64 
+        ./Configure no-tests no-shared linux-x86_64 
         make
 
     - name: Build libssh
       run: |
         cd libssh-${{env.LIBSSH_VERSION}}/build
-        cmake .. -DCMAKE_BUILD_TYPE=Release -DOPENSSL_ROOT_DIR=${{github.workspace}}/openssl-${{env.OPENSSL_VERSION}} -DZLIB_ROOT=${{github.workspace}}/zlib-${{env.ZLIB_VERSION}}
-        make
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DOPENSSL_USE_STATIC_LIBS=TRUE -DBUILD_SHARED_LIBS=OFF -DCMAKE_EXE_LINKER_FLAGS="-static" -DOPENSSL_ROOT_DIR=${{github.workspace}}/openssl-${{env.OPENSSL_VERSION}} -DZLIB_ROOT_DIR=${{github.workspace}}/zlib-${{env.ZLIB_VERSION}}
+        make ssh
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v2.2.4
       with:
-        name: libssh-linux-${{ matrix.toolset }}-${{ matrix.arch }}
+        name: libssh-linux-${{ matrix.arch }}
         path: ${{ github.workspace }}/libssh-${{env.LIBSSH_VERSION}}/build
         if-no-files-found: error
         retention-days: 7

@@ -117,7 +117,7 @@ jobs:
         cd openssl\${{env.OPENSSL_VERSION}}
         $env:Path += ";${{github.workspace}}\tools\nasm"
         $env:Path
-        perl Configure VC-WIN32 zlib-dynamic --with-zlib-include=${{github.workspace}}\zlib\${{env.ZLIB_VERSION}}     
+        perl Configure VC-WIN32 no-tests no-shared zlib-static --with-zlib-include=${{github.workspace}}\zlib\${{env.ZLIB_VERSION}}     
         nmake
 
     - name: Build openssl x64
@@ -127,7 +127,7 @@ jobs:
         cd openssl\${{env.OPENSSL_VERSION}}
         $env:Path += ";${{github.workspace}}\tools\nasm"
         $env:Path
-        perl Configure VC-WIN64A zlib-dynamic --with-zlib-include=${{github.workspace}}\zlib\${{env.ZLIB_VERSION}}     
+        perl Configure VC-WIN64A no-tests no-shared zlib-static --with-zlib-include=${{github.workspace}}\zlib\${{env.ZLIB_VERSION}}     
         nmake
 
     - name: Build libssh
@@ -135,13 +135,13 @@ jobs:
       shell: powershell
       run: |
         cd libssh\${{env.LIBSSH_VERSION}}\build
-        cmake .. -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DOPENSSL_ROOT_DIR=${{github.workspace}}\openssl\${{env.OPENSSL_VERSION}}\ -DZLIB_ROOT:PATH=${{github.workspace}}\zlib\${{env.ZLIB_VERSION}}\
+        cmake .. -G "NMake Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS="/MT" -DCMAKE_CXX_FLAGS="/MT" -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded -DOPENSSL_ROOT_DIR=${{github.workspace}}\openssl\${{env.OPENSSL_VERSION}}\ -DZLIB_ROOT:PATH=${{github.workspace}}\zlib\${{env.ZLIB_VERSION}}\
         nmake
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v2.2.4
       with:
-        name: libssh-win-${{ matrix.toolset }}-${{ matrix.arch }}
+        name: libssh-win-${{ matrix.arch }}
         path: ${{ github.workspace }}\libssh\${{env.LIBSSH_VERSION}}\build
         if-no-files-found: error
         retention-days: 7
