@@ -117,7 +117,7 @@ jobs:
         cd openssl\${{env.OPENSSL_VERSION}}
         $env:Path += ";${{github.workspace}}\tools\nasm"
         $env:Path
-        perl Configure VC-WIN32 no-tests no-shared zlib-static --with-zlib-include=${{github.workspace}}\zlib\${{env.ZLIB_VERSION}}     
+        perl Configure VC-WIN32 no-tests no-shared --with-zlib-include=${{github.workspace}}\zlib\${{env.ZLIB_VERSION}}     
         nmake
 
     - name: Build openssl x64
@@ -127,7 +127,7 @@ jobs:
         cd openssl\${{env.OPENSSL_VERSION}}
         $env:Path += ";${{github.workspace}}\tools\nasm"
         $env:Path
-        perl Configure VC-WIN64A no-tests no-shared zlib-static --with-zlib-include=${{github.workspace}}\zlib\${{env.ZLIB_VERSION}}     
+        perl Configure VC-WIN64A no-tests no-shared --with-zlib-include=${{github.workspace}}\zlib\${{env.ZLIB_VERSION}}     
         nmake
 
     - name: Build libssh
