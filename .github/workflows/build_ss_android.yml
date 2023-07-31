@@ -24,7 +24,7 @@ jobs:
 
     - name: 'Setup Android'
       run: |
-        export NDK_VERSION=25c
+        export NDK_VERSION=23c
         export ANDROID_NDK_PLATFORM=android-23
         export ANDROID_NDK_HOME=${{ runner.temp }}/android-ndk-r${NDK_VERSION}
         export ANDROID_NDK_ROOT=$ANDROID_NDK_HOME
