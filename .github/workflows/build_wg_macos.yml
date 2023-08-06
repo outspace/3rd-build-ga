@@ -25,7 +25,9 @@ jobs:
 
       - name: 'Run build script'
         working-directory: wireguard-go
-        run: make
+        run: |
+          make
+          ./wireguard-go --version
       
       - name: Archive artifacts
         uses: actions/upload-artifact@v3
