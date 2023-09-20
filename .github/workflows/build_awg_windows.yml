@@ -1,4 +1,4 @@
-name: windows-wg
+name: windows-awg
 
 on: [push]
     
@@ -6,12 +6,12 @@ on: [push]
 jobs:
       
   Build-Libs-WireGuard-Windows:
-    name: 'Build-Libs-WireGuard-Windows'
+    name: 'Build-Libs-AWG-Windows'
     runs-on: windows-latest
     if: |
       contains(github.event.head_commit.message, '[all]') ||
       contains(github.event.head_commit.message, '[windows]') ||
-      contains(github.event.head_commit.message, '[windows-wireguard-go]') ||
+      contains(github.event.head_commit.message, '[windows-awg]') ||
       contains(github.event.head_commit.message, '[wireguard]')      
 
     steps:
