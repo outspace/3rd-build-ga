@@ -22,7 +22,6 @@ jobs:
         BUILD_CONFIGURATION: Release
         VCPKG_OVERLAY_PORTS: ${{ github.workspace }}/openvpn/contrib/vcpkg-ports
         VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}/openvpn/contrib/vcpkg-triplets
-        ExternalCompilerOptions: /DENABLE_DEBUG
               
       runs-on: windows-latest
       if: |
@@ -64,7 +63,7 @@ jobs:
         run: |
           ${{ github.workspace }}/vcpkg/vcpkg.exe integrate install
           (Get-Content ${{ github.workspace }}/openvpn/src/openvpn/openvpn.vcxproj).Replace('_CRT_NONSTDC_NO_DEPRECATE;', '_CRT_NONSTDC_NO_DEPRECATE;ENABLE_DEBUG;') | Set-Content ${{ github.workspace }}/openvpn/src/openvpn/openvpn.vcxproj
-          msbuild /m /p:Configuration=${{env.BUILD_CONFIGURATION}} /p:Platform="${{ matrix.plat }}" /p:MyConstants="ENABLE_DEBUG=1" /p:DefineConstants="ENABLE_DEBUG" /p:ENABLE_DEBUG="1"  .
+          msbuild /m /p:Configuration=${{env.BUILD_CONFIGURATION}} /p:Platform="${{ matrix.plat }}" .
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v3
