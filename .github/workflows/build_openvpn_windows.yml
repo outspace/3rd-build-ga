@@ -71,46 +71,35 @@ jobs:
         arch: [amd64]
 
     env:
-      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      VCPKG_ROOT: ${{ github.workspace }}/openvpn3/vcpkg
       BUILD_CONFIGURATION: Release
-      buildDir: '${{ github.workspace }}/build'
+      buildDir: '${{ github.workspace }}/openvpn3/build'
 
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
       
+      - uses: lukka/get-cmake@latest
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          working-directory: openvpn3        
+          arch: ${{ matrix.arch }}
+
       - name: 'Get openvpn3'
         uses: actions/checkout@v3
         with:
           repository: amnezia-vpn/openvpn3
-          ref: win-amnezia
-          path: openvpn
-
-      - uses: actions/checkout@v2
-      - uses: lukka/get-cmake@latest
-      - uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: ${{ matrix.arch }}
-
-      - name: Restore from cache and install vcpkg
-        uses: lukka/run-vcpkg@v6
-        with:
-          setupOnly: true
-          vcpkgGitCommitId: 'd8d61c941c333a147edffdcbdc9964dc0c0962f5'
-          additionalCachedPaths: ${{ env.buildDir }}/vcpkg_installed
-          appendedCacheKey: ${{ matrix.arch }}-${{ hashFiles( '**/vcpkg.json' ) }}
-
-      - name: Run CMake with vcpkg.json manifest
-        uses: lukka/run-cmake@v3
-        env:
-          VCPKG_OVERLAY_PORTS: '${{ github.workspace }}/deps/vcpkg-ports'
-        with:
-          useVcpkgToolchainFile: true
-          buildDirectory: '${{ env.buildDir }}'
-          buildWithCMake: true
-          cmakeAppendedArgs: '-DCLI_OVPNDCOWIN=ON'
-          cmakeBuildType: ${{env.BUILD_CONFIGURATION}}
-
+          ref: win-amezia
+          path: openvpn3
+          
+      - name: 'Build OpenVPN3'
+        working-directory: openvpn3
+        run: |
+          git clone https://github.com/Microsoft/vcpkg.git
+          ./vcpkg/bootstrap-vcpkg.bat
+          cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/openvpn3/vcpkg/scripts/buildsystems/vcpkg.cmake" -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/openvpn3/deps/vcpkg-ports"
+          cmake --build build --config Release --target ovpncli    
+          
       - uses: actions/upload-artifact@v2
         with:
           name: openvpn3-${{ matrix.arch }}
