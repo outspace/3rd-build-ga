@@ -208,3 +208,12 @@ jobs:
           tag: ${{ github.ref }}
           overwrite: true
           file_glob: true  
+      
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: openvpn3-linux.zip
+          tag: ${{ github.ref }}
+          overwrite: true
+          file_glob: true      
