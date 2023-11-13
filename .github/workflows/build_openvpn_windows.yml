@@ -65,16 +65,57 @@ jobs:
           (Get-Content ${{ github.workspace }}/openvpn/src/openvpn/openvpn.vcxproj).Replace('_CRT_NONSTDC_NO_DEPRECATE;', '_CRT_NONSTDC_NO_DEPRECATE;ENABLE_DEBUG;') | Set-Content ${{ github.workspace }}/openvpn/src/openvpn/openvpn.vcxproj
           msbuild /m /p:Configuration=${{env.BUILD_CONFIGURATION}} /p:Platform="${{ matrix.plat }}" .
 
-      - name: Archive artifacts
-        uses: actions/upload-artifact@v3
-        with:
-          name: openvpn-win-${{ matrix.plat }}
-          path: |
-            openvpn/${{ matrix.plat }}-Output/${{env.BUILD_CONFIGURATION}}/*.exe
-            openvpn/${{ matrix.plat }}-Output/${{env.BUILD_CONFIGURATION}}/*.dll
-            openvpn/${{ matrix.plat }}-Output/${{env.BUILD_CONFIGURATION}}/*.pdb
-            openvpn/doc/openvpn.8.html          
+  openvpn3-msvc:
+    strategy:
+      matrix:
+        arch: [amd64]
 
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}/openvpn3/vcpkg
+      BUILD_CONFIGURATION: Release
+      buildDir: '${{ github.workspace }}/openvpn3/build'
+
+    runs-on: windows-latest
+    if: |
+      contains(github.event.head_commit.message, '[all]') ||
+      contains(github.event.head_commit.message, '[windows]') ||
+      contains(github.event.head_commit.message, '[windows-openvpn]') ||
+      contains(github.event.head_commit.message, '[openvpn]')
+    steps:
+      - uses: actions/checkout@v3
+      
+      - uses: lukka/get-cmake@latest
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          working-directory: openvpn3        
+          arch: ${{ matrix.arch }}
+
+      - name: 'Get openvpn3'
+        uses: actions/checkout@v3
+        with:
+          repository: amnezia-vpn/openvpn3
+          ref: win-amezia
+          path: openvpn3
+          
+      - name: 'Build OpenVPN3'
+        working-directory: openvpn3
+        run: |
+          git clone https://github.com/Microsoft/vcpkg.git
+          ./vcpkg/bootstrap-vcpkg.bat
+          cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/openvpn3/vcpkg/scripts/buildsystems/vcpkg.cmake" -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/openvpn3/deps/vcpkg-ports"
+          cmake --build build --config Release --target ovpncli    
+          
+      - uses: actions/upload-artifact@v2
+        with:
+          name: openvpn3-${{ matrix.arch }}
+          path: |
+              ${{ env.buildDir }}/**/*.exe
+              ${{ env.buildDir }}/**/*.dll
+              !${{ env.buildDir }}/test/ssl/**
+              !${{ env.buildDir }}/test/unittests/**
+              !${{ env.buildDir }}/CMakeFiles/**
+              !${{ env.buildDir }}/vcpkg_installed/**
+            
   github-release:
     name: GitHub Release
     needs: msvc
