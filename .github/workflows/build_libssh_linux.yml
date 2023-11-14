@@ -13,7 +13,7 @@ env:
 
 jobs:
   Build-LibSSH-Linux:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     if: |
       contains(github.event.head_commit.message, '[all]') ||
       contains(github.event.head_commit.message, '[linux]') ||
@@ -77,7 +77,7 @@ jobs:
     - name: Build libssh
       run: |
         cd libssh-${{env.LIBSSH_VERSION}}/build
-        cmake .. -DCMAKE_BUILD_TYPE=Release -DOPENSSL_USE_STATIC_LIBS=TRUE -DWITH_GSSAPI=OFF -DBUILD_SHARED_LIBS=OFF -DCMAKE_EXE_LINKER_FLAGS="-static"  -DOPENSSL_CRYPTO_LIBRARY=${{github.workspace}}/openssl-${{env.OPENSSL_VERSION}}/libcrypto.a -DOPENSSL_SSL_LIBRARY=${{github.workspace}}/openssl-${{env.OPENSSL_VERSION}}/libssl.a -DOPENSSL_INCLUDE_DIR=${{github.workspace}}/openssl-${{env.OPENSSL_VERSION}}/include -DZLIB_ROOT_DIR=${{github.workspace}}/zlib-${{env.ZLIB_VERSION}} -DZLIB_LIBRARY=${{github.workspace}}/zlib-${{env.ZLIB_VERSION}}/libz.a 
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DOPENSSL_USE_STATIC_LIBS=TRUE -DWITH_GSSAPI=OFF -DBUILD_SHARED_LIBS=OFF -DCMAKE_EXE_LINKER_FLAGS="-static" -DOPENSSL_ROOT_DIR=${{github.workspace}}/openssl-${{env.OPENSSL_VERSION}} -DZLIB_ROOT_DIR=${{github.workspace}}/zlib-${{env.ZLIB_VERSION}} -DZLIB_LIBRARY=${{github.workspace}}/zlib-${{env.ZLIB_VERSION}}/libz.a 
         make ssh
 
     - name: Upload Artifact

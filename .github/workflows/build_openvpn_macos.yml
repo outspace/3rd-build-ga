@@ -160,7 +160,7 @@ jobs:
 
     steps:
       - name: Install dependencies
-        run: brew install asio cmake jsoncpp lz4 openssl pkg-config
+        run: brew install asio cmake jsoncpp openssl pkg-config
       
       - name: Creating work-folder
         run: |
@@ -172,6 +172,16 @@ jobs:
           repository: amnezia-vpn/openvpn3
           ref: win-amezia
           path: ${{ github.workspace }}/src/openvpn3
+
+      - name: Build LZ4
+        run: |
+          cd ${BUILD_DIR}
+          git clone https://github.com/lz4/lz4
+          cd lz4
+          git checkout release
+          CLFAGS="-mmacosx-version-min=10.6" make
+          sudo rm *.dylib
+          CLFAGS="-mmacosx-version-min=10.6" sudo make install"
 
       - name: Build MacOS OpenVPN3
         run: |
