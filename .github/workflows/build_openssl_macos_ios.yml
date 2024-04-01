@@ -8,7 +8,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ssllib: [ 1.1.1t ]
+        ssllib: [ 3.2.0 ]
         
     runs-on: macos-12
     if: |
@@ -30,11 +30,19 @@ jobs:
           path: Build-OpenSSL-cURL
 
       - name: 'Run build script'
-        working-directory: Build-OpenSSL-cURL/openssl
         run: |
-          sed -i '' 's/openssl-3.0.9/openssl-${{matrix.ssllib}}/' openssl-build.sh
-          sed -i '' 's/3.0.9/${{matrix.ssllib}}/' openssl-build-phase1.sh
-          sed -i '' 's/3.0.9/${{matrix.ssllib}}/' openssl-build-phase2.sh
+          cd Build-OpenSSL-cURL/openssl
+          sed -i '' 's/openssl-3.0.9/openssl-${{matrix.ssllib}}/' ./openssl-build.sh
+          sed -i '' 's/3.0.9/${{matrix.ssllib}}/' ./openssl-build-phase1.sh
+          sed -i '' 's/3.0.9/${{matrix.ssllib}}/' ./openssl-build-phase2.sh
+          export tvOSline=$(grep -wn "## tvOS" ./openssl-build-phase1.sh | cut -d: -f1)
+          echo ${tvOSline}
+          cat ./openssl-build-phase1.sh
+          sed ''"$tvOSline"',$d' ./openssl-build-phase1.sh >> ./openssl-build-phase1_.sh
+          rm ./openssl-build-phase1.sh
+          cp ./openssl-build-phase1_.sh ./openssl-build-phase1.sh
+          cat ./openssl-build-phase1.sh
+          chmod 755 ./openssl-build-phase1.sh
           ./openssl-build.sh -e
       
       - name: Archive artifacts
