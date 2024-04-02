@@ -8,7 +8,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ssllib: [ 3.1.5 ]
+        ssllib: [ 3.0.13 ]
         
     runs-on: macos-12
     if: |
@@ -35,14 +35,6 @@ jobs:
           sed -i '' 's/openssl-3.0.9/openssl-${{matrix.ssllib}}/' ./openssl-build.sh
           sed -i '' 's/3.0.9/${{matrix.ssllib}}/' ./openssl-build-phase1.sh
           sed -i '' 's/3.0.9/${{matrix.ssllib}}/' ./openssl-build-phase2.sh
-          export tvOSline=$(grep -wn "## tvOS" ./openssl-build-phase1.sh | cut -d: -f1)
-          echo ${tvOSline}
-          cat ./openssl-build-phase1.sh
-          sed ''"$tvOSline"',$d' ./openssl-build-phase1.sh >> ./openssl-build-phase1_.sh
-          rm ./openssl-build-phase1.sh
-          cp ./openssl-build-phase1_.sh ./openssl-build-phase1.sh
-          cat ./openssl-build-phase1.sh
-          chmod 755 ./openssl-build-phase1.sh
           ./openssl-build.sh -e
       
       - name: Archive artifacts
