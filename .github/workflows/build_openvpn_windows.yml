@@ -23,7 +23,7 @@ jobs:
         VCPKG_OVERLAY_PORTS: ${{ github.workspace }}/openvpn/contrib/vcpkg-ports
         VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}/openvpn/contrib/vcpkg-triplets
               
-      runs-on: windows-latest
+      runs-on: windows-2019
       if: |
         contains(github.event.head_commit.message, '[all]') ||
         contains(github.event.head_commit.message, '[windows]') ||
@@ -40,7 +40,7 @@ jobs:
           ref: release/2.5
           path: openvpn
 
-      - name: Add MSBuild to PATH
+      - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v1.1
 
       - name: Set up Python
@@ -54,8 +54,7 @@ jobs:
       - name: Restore artifacts, or setup vcpkg (do not install any package)
         uses: lukka/run-vcpkg@v10
         with:
-          vcpkgGitCommitId: 'd10d511f25620ca0f315cd83dcef6485efc63010'
-          vcpkgJsonGlob: '**/openvpn/vcpkg.json'
+          vcpkgGitCommitId: '4b766c1cd17205e1b768c4fadfd5f867c1d0510e'
           appendedCacheKey: '${{matrix.triplet}}'
 
       - name: Run MSBuild consuming vcpkg.json
